@@ -66,39 +66,64 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AppProvider>
-        <Box sx={{ flexGrow: 1 }}>
-          <AppBar position="static">
-            <Toolbar>
-              <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                Poker Results Tracker
-              </Typography>
-              <IconButton color="inherit" onClick={toggleTheme}>
-                {darkMode ? <Brightness7 /> : <Brightness4 />}
-              </IconButton>
-            </Toolbar>
-          </AppBar>
-          
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={tabValue} onChange={handleTabChange} aria-label="poker tracker tabs">
-              <Tab label="Session Tracking" />
-              <Tab label="Reports" />
-              <Tab label="Player Notes" />
-              <Tab label="Table Selection" />
-            </Tabs>
+        <Box 
+          sx={{ 
+            minHeight: '100vh',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 2,
+            backgroundColor: 'background.default'
+          }}
+        >
+          <Box 
+            sx={{ 
+              width: '100%',
+              maxWidth: '1200px',
+              minHeight: '80vh',
+              border: 2,
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              boxShadow: 3,
+              backgroundColor: 'background.paper',
+              overflow: 'hidden'
+            }}
+          >
+            <AppBar position="static">
+              <Toolbar>
+                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                  Poker Results Tracker
+                </Typography>
+                <IconButton color="inherit" onClick={toggleTheme}>
+                  {darkMode ? <Brightness7 /> : <Brightness4 />}
+                </IconButton>
+              </Toolbar>
+            </AppBar>
+            
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs value={tabValue} onChange={handleTabChange} aria-label="poker tracker tabs">
+                <Tab label="Session Tracking" />
+                <Tab label="Reports" />
+                <Tab label="Player Notes" />
+                <Tab label="Table Selection" />
+              </Tabs>
+            </Box>
+            
+            <Box sx={{ minHeight: '60vh' }}>
+              <TabPanel value={tabValue} index={0}>
+                <SessionTab />
+              </TabPanel>
+              <TabPanel value={tabValue} index={1}>
+                <ReportsTab />
+              </TabPanel>
+              <TabPanel value={tabValue} index={2}>
+                <NotesTab />
+              </TabPanel>
+              <TabPanel value={tabValue} index={3}>
+                <TableSelectionTab />
+              </TabPanel>
+            </Box>
           </Box>
-          
-          <TabPanel value={tabValue} index={0}>
-            <SessionTab />
-          </TabPanel>
-          <TabPanel value={tabValue} index={1}>
-            <ReportsTab />
-          </TabPanel>
-          <TabPanel value={tabValue} index={2}>
-            <NotesTab />
-          </TabPanel>
-          <TabPanel value={tabValue} index={3}>
-            <TableSelectionTab />
-          </TabPanel>
         </Box>
       </AppProvider>
     </ThemeProvider>
