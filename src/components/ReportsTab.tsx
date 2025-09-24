@@ -85,7 +85,10 @@ export default function ReportsTab() {
       totalHands,
       totalHours,
       avgNetPerSession: totalSessions > 0 ? totalNet / totalSessions : 0,
+      avgSessionTime: totalSessions > 0 ? totalHours / totalSessions : 0,
       handsPerHour: totalHours > 0 ? totalHands / totalHours : 0,
+      dollarPerHour: totalHours > 0 ? totalNet / totalHours : 0,
+      dollarPerHand: totalHands > 0 ? totalNet / totalHands : 0,
     };
   };
 
@@ -208,40 +211,66 @@ export default function ReportsTab() {
         <Typography variant="h6" gutterBottom>
           Summary Statistics
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <Box sx={{ minWidth: 120 }}>
-            <Typography variant="body2" color="text.secondary">Total Sessions</Typography>
-            <Typography variant="h6">{stats.totalSessions}</Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">Total Net</Typography>
+              <Typography 
+                variant="h6" 
+                color={stats.totalNet >= 0 ? 'success.main' : 'error.main'}
+              >
+                ${stats.totalNet.toFixed(2)}
+              </Typography>
+            </Box>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">Total Sessions</Typography>
+              <Typography variant="h6">{stats.totalSessions}</Typography>
+            </Box>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">Total Hands</Typography>
+              <Typography variant="h6">{stats.totalHands}</Typography>
+            </Box>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">Total Hours</Typography>
+              <Typography variant="h6">{stats.totalHours.toFixed(1)}</Typography>
+            </Box>
           </Box>
-          <Box sx={{ minWidth: 120 }}>
-            <Typography variant="body2" color="text.secondary">Total Net</Typography>
-            <Typography 
-              variant="h6" 
-              color={stats.totalNet >= 0 ? 'success.main' : 'error.main'}
-            >
-              ${stats.totalNet.toFixed(2)}
-            </Typography>
-          </Box>
-          <Box sx={{ minWidth: 120 }}>
-            <Typography variant="body2" color="text.secondary">Avg Net/Session</Typography>
-            <Typography 
-              variant="h6" 
-              color={stats.avgNetPerSession >= 0 ? 'success.main' : 'error.main'}
-            >
-              ${stats.avgNetPerSession.toFixed(2)}
-            </Typography>
-          </Box>
-          <Box sx={{ minWidth: 120 }}>
-            <Typography variant="body2" color="text.secondary">Total Hands</Typography>
-            <Typography variant="h6">{stats.totalHands}</Typography>
-          </Box>
-          <Box sx={{ minWidth: 120 }}>
-            <Typography variant="body2" color="text.secondary">Total Hours</Typography>
-            <Typography variant="h6">{stats.totalHours.toFixed(1)}</Typography>
-          </Box>
-          <Box sx={{ minWidth: 120 }}>
-            <Typography variant="body2" color="text.secondary">Hands/Hour</Typography>
-            <Typography variant="h6">{stats.handsPerHour.toFixed(1)}</Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">Avg Net/Session</Typography>
+              <Typography 
+                variant="h6" 
+                color={stats.avgNetPerSession >= 0 ? 'success.main' : 'error.main'}
+              >
+                ${stats.avgNetPerSession.toFixed(2)}
+              </Typography>
+            </Box>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">Avg Session Time</Typography>
+              <Typography variant="h6">{stats.avgSessionTime.toFixed(2)}h</Typography>
+            </Box>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">Hands/Hour</Typography>
+              <Typography variant="h6">{stats.handsPerHour.toFixed(1)}</Typography>
+            </Box>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">$/Hour</Typography>
+              <Typography 
+                variant="h6" 
+                color={stats.dollarPerHour >= 0 ? 'success.main' : 'error.main'}
+              >
+                ${stats.dollarPerHour.toFixed(2)}
+              </Typography>
+            </Box>
+            <Box sx={{ minWidth: 120 }}>
+              <Typography variant="body2" color="text.secondary">$/Hand</Typography>
+              <Typography 
+                variant="h6" 
+                color={stats.dollarPerHand >= 0 ? 'success.main' : 'error.main'}
+              >
+                ${stats.dollarPerHand.toFixed(2)}
+              </Typography>
+            </Box>
           </Box>
         </Box>
       </Paper>
