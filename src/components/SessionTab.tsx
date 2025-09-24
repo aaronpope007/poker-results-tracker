@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -12,31 +12,63 @@ import {
   FormControlLabel,
   Button,
   Chip,
+  Alert,
 } from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { differenceInMinutes } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import type { Session } from '../types';
 
 export default function SessionTab() {
   const { state, dispatch } = useApp();
+  
+  // Safety check to prevent crashes
+  if (!state) {
+    return <div>Loading...</div>;
+  }
   const [session, setSession] = useState<Partial<Session>>({
     date: new Date(),
-    startTime: new Date(),
+    startTime: undefined,
     endTime: undefined,
     handsStart: 0,
     limit: '',
     format: 'HU with ante',
     straddle: false,
     accountStart: 0,
-    isActive: true,
+    isActive: false,
   });
 
   const [isEditing, setIsEditing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Timer effect for live updates - only when session is active
   useEffect(() => {
+    if (!state.currentSession?.isActive) return;
+    
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [state.currentSession?.isActive]);
+
+  // Load default settings and previous session data
+  useEffect(() => {
+    // Load default settings from localStorage
+    const defaultSettings = localStorage.getItem('poker-default-settings');
+    if (defaultSettings) {
+      try {
+        const settings = JSON.parse(defaultSettings);
+        setSession(prev => ({
+          ...prev,
+          limit: settings.limit || '',
+          format: settings.format || 'HU with ante',
+        }));
+      } catch (error) {
+        console.error('Error loading default settings:', error);
+      }
+    }
+
+    // Load previous session data
     if (state.sessions.length > 0) {
       const lastSession = state.sessions[state.sessions.length - 1];
       if (lastSession.handsEnd) {
@@ -50,10 +82,11 @@ export default function SessionTab() {
   }, [state.sessions]);
 
   const handleStartSession = () => {
+    const now = new Date();
     const newSession: Session = {
       id: Date.now().toString(),
-      date: session.date || new Date(),
-      startTime: session.startTime || new Date(),
+      date: now,
+      startTime: now,
       handsStart: session.handsStart || 0,
       limit: session.limit || '',
       format: session.format || 'HU with ante',
@@ -65,14 +98,73 @@ export default function SessionTab() {
     dispatch({ type: 'ADD_SESSION', payload: newSession });
     dispatch({ type: 'SET_CURRENT_SESSION', payload: newSession });
     setIsEditing(true);
+    
+    // Initialize timer for the new session
+    setCurrentTime(now);
+    
+    // Reset form for next session but keep current limit and format
+    setSession(prev => ({
+      date: new Date(),
+      startTime: undefined,
+      endTime: undefined,
+      handsStart: 0,
+      limit: prev.limit,
+      format: prev.format,
+      straddle: false,
+      accountStart: 0,
+      isActive: false,
+    }));
+  };
+
+  const handleSaveDefaults = () => {
+    const defaultSettings = {
+      limit: session.limit,
+      format: session.format,
+    };
+    localStorage.setItem('poker-default-settings', JSON.stringify(defaultSettings));
+    alert('Default settings saved!');
+  };
+
+  const handleClearSession = () => {
+    try {
+      dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
+      setIsEditing(false);
+      setCurrentTime(new Date());
+      
+      // Reset session form to default state
+      setSession(prev => ({
+        date: new Date(),
+        startTime: undefined,
+        endTime: undefined,
+        handsStart: 0,
+        limit: prev.limit || '',
+        format: prev.format || 'HU with ante',
+        straddle: false,
+        accountStart: 0,
+        isActive: false,
+      }));
+    } catch (error) {
+      console.error('Error clearing session:', error);
+      // Fallback: reload the page
+      window.location.reload();
+    }
+  };
+
+  const handleClearAllData = () => {
+    if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+      localStorage.removeItem('poker-tracker-data');
+      localStorage.removeItem('poker-default-settings');
+      window.location.reload();
+    }
   };
 
   const handleEndSession = () => {
     if (!state.currentSession) return;
     
+    const now = new Date();
     const updatedSession: Session = {
       ...state.currentSession,
-      endTime: session.endTime || new Date(),
+      endTime: now,
       handsEnd: session.handsEnd,
       accountEnd: session.accountEnd,
       isActive: false,
@@ -81,35 +173,25 @@ export default function SessionTab() {
     dispatch({ type: 'UPDATE_SESSION', payload: updatedSession });
     dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
     setIsEditing(false);
-  };
-
-  const handleStartNewSession = () => {
-    // Reset form to default values
-    setSession({
-      date: new Date(),
-      startTime: new Date(),
-      endTime: undefined,
-      handsStart: 0,
-      limit: '',
-      format: 'HU with ante',
-      straddle: false,
-      accountStart: 0,
-      isActive: true,
-    });
-    setIsEditing(false);
     
-    // Clear current session if any
-    dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
+    // Stop the timer when session ends
+    setCurrentTime(now);
   };
 
-  const getSessionDuration = () => {
-    if (!session.startTime) return '0h 0m';
-    const endTime = session.endTime || new Date();
-    const minutes = differenceInMinutes(endTime, session.startTime);
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}h ${remainingMinutes}m`;
-  };
+
+
+  const getCurrentSessionDuration = useCallback(() => {
+    if (!state.currentSession?.startTime || !state.currentSession?.isActive) return '0h 0m';
+    try {
+      const minutes = differenceInMinutes(currentTime, state.currentSession.startTime);
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      return `${hours}h ${remainingMinutes}m`;
+    } catch (error) {
+      console.error('Error calculating session duration:', error);
+      return '0h 0m';
+    }
+  }, [state.currentSession?.startTime, state.currentSession?.isActive, currentTime]);
 
   const getTotalHands = () => {
     if (!session.handsEnd || !session.handsStart) return 0;
@@ -137,44 +219,38 @@ export default function SessionTab() {
     }, 0);
   };
 
-  return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Poker Session Tracker
-        </Typography>
-        
-        <Box sx={{ mb: 3 }}>
-          <Chip
-            label={`Total Net: $${getTotalNet().toFixed(2)}`}
-            color={getTotalNet() >= 0 ? 'success' : 'error'}
-            sx={{ fontSize: '1.2rem', p: 2 }}
-          />
-        </Box>
+  const canEndSession = () => {
+    return !!(session.handsStart && session.handsEnd && session.accountStart && session.accountEnd);
+  };
 
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <Box sx={{ minWidth: 200 }}>
-                <DateTimePicker
-                  label="Start Time"
-                  value={session.startTime}
-                  onChange={(time) => setSession(prev => ({ ...prev, startTime: time || new Date() }))}
-                  slotProps={{ textField: { fullWidth: true } }}
-                  minutesStep={1}
-                />
-              </Box>
-              <Box sx={{ minWidth: 200 }}>
-                <DateTimePicker
-                  label="End Time"
-                  value={session.endTime}
-                  onChange={(time) => setSession(prev => ({ ...prev, endTime: time || undefined }))}
-                  slotProps={{ textField: { fullWidth: true } }}
-                  disabled={!isEditing}
-                  minutesStep={1}
-                />
-              </Box>
-            </Box>
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Poker Session Tracker
+      </Typography>
+      
+      <Box sx={{ mb: 3 }}>
+        <Chip
+          label={`Total Net: $${getTotalNet().toFixed(2)}`}
+          color={getTotalNet() >= 0 ? 'success' : 'error'}
+          sx={{ fontSize: '1.2rem', p: 2 }}
+        />
+      </Box>
+
+      {/* Current Session Status */}
+      {state.currentSession && state.currentSession.isActive && state.currentSession.startTime && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="h6">
+            Session Active - Started: {state.currentSession.startTime.toLocaleString()}
+          </Typography>
+          <Typography variant="body1">
+            Duration: {getCurrentSessionDuration()}
+          </Typography>
+        </Alert>
+      )}
+
+      <Paper sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField
@@ -264,12 +340,6 @@ export default function SessionTab() {
             {state.currentSession && (
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <TextField
-                  label="Session Duration"
-                  value={getSessionDuration()}
-                  sx={{ minWidth: 150 }}
-                  disabled
-                />
-                <TextField
                   label="Hands Per Hour"
                   value={getHandsPerHour()}
                   sx={{ minWidth: 150 }}
@@ -287,40 +357,57 @@ export default function SessionTab() {
               </Typography>
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
               {!isEditing ? (
                 <>
                   <Button
                     variant="contained"
                     size="large"
                     onClick={handleStartSession}
-                    disabled={!session.limit}
                   >
                     Start Session
                   </Button>
                   <Button
                     variant="outlined"
-                    size="large"
-                    onClick={handleStartNewSession}
+                    size="medium"
+                    onClick={handleSaveDefaults}
+                    disabled={!session.limit || !session.format}
                   >
-                    Start New Session
+                    Save as Default
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={handleClearAllData}
+                  >
+                    Clear All Data
                   </Button>
                 </>
               ) : (
-                <Button
-                  variant="contained"
-                  color="error"
-                  size="large"
-                  onClick={handleEndSession}
-                  disabled={!session.handsEnd || !session.accountEnd}
-                >
-                  End Session
-                </Button>
+                <>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="large"
+                    onClick={handleEndSession}
+                    disabled={!canEndSession()}
+                  >
+                    End Session
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="medium"
+                    onClick={handleClearSession}
+                  >
+                    Clear Session
+                  </Button>
+                </>
               )}
             </Box>
           </Box>
         </Paper>
       </Box>
-    </LocalizationProvider>
-  );
+    );
 }

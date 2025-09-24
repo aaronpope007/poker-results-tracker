@@ -100,6 +100,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             endTime: session.endTime ? new Date(session.endTime) : undefined,
           }));
         }
+        
+        // Clear any active sessions on app startup (hard reset behavior)
+        if (parsed.currentSession) {
+          parsed.currentSession = null;
+        }
+        
         dispatch({ type: 'LOAD_DATA', payload: parsed });
         console.log('Data loaded successfully');
       } catch (error) {
