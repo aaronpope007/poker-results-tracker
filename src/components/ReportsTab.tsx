@@ -79,6 +79,63 @@ export default function ReportsTab() {
       return sum;
     }, 0);
 
+    // Calculate time bucket statistics
+    const timeBuckets = {
+      night: { sessions: 0, net: 0, hours: 0, label: '12 AM - 6 AM' }, // 0-6
+      morning: { sessions: 0, net: 0, hours: 0, label: '6 AM - 12 PM' }, // 6-12
+      afternoon: { sessions: 0, net: 0, hours: 0, label: '12 PM - 6 PM' }, // 12-18
+      evening: { sessions: 0, net: 0, hours: 0, label: '6 PM - 12 AM' }, // 18-24
+    };
+
+    completedSessions.forEach(session => {
+      if (session.startTime) {
+        const hour = session.startTime.getHours();
+        const net = session.accountEnd! - session.accountStart!;
+        const hours = session.endTime && session.startTime 
+          ? (session.endTime.getTime() - session.startTime.getTime()) / (1000 * 60 * 60)
+          : 0;
+
+        if (hour >= 0 && hour < 6) {
+          timeBuckets.night.sessions++;
+          timeBuckets.night.net += net;
+          timeBuckets.night.hours += hours;
+        } else if (hour >= 6 && hour < 12) {
+          timeBuckets.morning.sessions++;
+          timeBuckets.morning.net += net;
+          timeBuckets.morning.hours += hours;
+        } else if (hour >= 12 && hour < 18) {
+          timeBuckets.afternoon.sessions++;
+          timeBuckets.afternoon.net += net;
+          timeBuckets.afternoon.hours += hours;
+        } else if (hour >= 18 && hour < 24) {
+          timeBuckets.evening.sessions++;
+          timeBuckets.evening.net += net;
+          timeBuckets.evening.hours += hours;
+        }
+      }
+    });
+
+    // Calculate stakes-based statistics
+    const stakesBuckets: { [key: string]: { sessions: number, net: number, hours: number, hands: number, label: string } } = {};
+    
+    completedSessions.forEach(session => {
+      const stake = session.limit;
+      if (!stakesBuckets[stake]) {
+        stakesBuckets[stake] = { sessions: 0, net: 0, hours: 0, hands: 0, label: stake };
+      }
+      
+      const net = session.accountEnd! - session.accountStart!;
+      const hours = session.endTime && session.startTime 
+        ? (session.endTime.getTime() - session.startTime.getTime()) / (1000 * 60 * 60)
+        : 0;
+      const hands = session.handsEnd! - session.handsStart;
+      
+      stakesBuckets[stake].sessions++;
+      stakesBuckets[stake].net += net;
+      stakesBuckets[stake].hours += hours;
+      stakesBuckets[stake].hands += hands;
+    });
+
     return {
       totalSessions,
       totalNet,
@@ -87,8 +144,11 @@ export default function ReportsTab() {
       avgNetPerSession: totalSessions > 0 ? totalNet / totalSessions : 0,
       avgSessionTime: totalSessions > 0 ? totalHours / totalSessions : 0,
       handsPerHour: totalHours > 0 ? totalHands / totalHours : 0,
+      handsPerSession: totalSessions > 0 ? totalHands / totalSessions : 0,
       dollarPerHour: totalHours > 0 ? totalNet / totalHours : 0,
       dollarPerHand: totalHands > 0 ? totalNet / totalHands : 0,
+      timeBuckets,
+      stakesBuckets,
     };
   };
 
@@ -207,73 +267,148 @@ export default function ReportsTab() {
         </Box>
       </Paper>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Summary Statistics
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">Total Net</Typography>
-              <Typography 
-                variant="h6" 
-                color={stats.totalNet >= 0 ? 'success.main' : 'error.main'}
-              >
-                ${stats.totalNet.toFixed(2)}
-              </Typography>
+      <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+        <Paper sx={{ p: 3, flex: 1 }}>
+          <Typography variant="h6" gutterBottom>
+            Summary Statistics
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Row 1: Time-based metrics */}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">Total Sessions</Typography>
+                <Typography variant="h6">{stats.totalSessions}</Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">Total Hours</Typography>
+                <Typography variant="h6">{stats.totalHours.toFixed(1)}</Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">Avg Session Time</Typography>
+                <Typography variant="h6">{stats.avgSessionTime.toFixed(2)}h</Typography>
+              </Box>
             </Box>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">Total Sessions</Typography>
-              <Typography variant="h6">{stats.totalSessions}</Typography>
+            
+            {/* Row 2: Hand-based metrics */}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">Total Hands</Typography>
+                <Typography variant="h6">{stats.totalHands}</Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">Hands/Hour</Typography>
+                <Typography variant="h6">{stats.handsPerHour.toFixed(1)}</Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">Hands/Session</Typography>
+                <Typography variant="h6">{stats.handsPerSession.toFixed(0)}</Typography>
+              </Box>
             </Box>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">Total Hands</Typography>
-              <Typography variant="h6">{stats.totalHands}</Typography>
-            </Box>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">Total Hours</Typography>
-              <Typography variant="h6">{stats.totalHours.toFixed(1)}</Typography>
+            
+            {/* Row 3: Profit-based metrics */}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">Total Net</Typography>
+                <Typography 
+                  variant="h6" 
+                  color={stats.totalNet >= 0 ? 'success.main' : 'error.main'}
+                >
+                  ${stats.totalNet.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">$/Hour</Typography>
+                <Typography 
+                  variant="h6" 
+                  color={stats.dollarPerHour >= 0 ? 'success.main' : 'error.main'}
+                >
+                  ${stats.dollarPerHour.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">$/Session</Typography>
+                <Typography 
+                  variant="h6" 
+                  color={stats.avgNetPerSession >= 0 ? 'success.main' : 'error.main'}
+                >
+                  ${stats.avgNetPerSession.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ minWidth: 120 }}>
+                <Typography variant="body2" color="text.secondary">$/Hand</Typography>
+                <Typography 
+                  variant="h6" 
+                  color={stats.dollarPerHand >= 0 ? 'success.main' : 'error.main'}
+                >
+                  ${stats.dollarPerHand.toFixed(2)}
+                </Typography>
+              </Box>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">Avg Net/Session</Typography>
-              <Typography 
-                variant="h6" 
-                color={stats.avgNetPerSession >= 0 ? 'success.main' : 'error.main'}
-              >
-                ${stats.avgNetPerSession.toFixed(2)}
-              </Typography>
+        </Paper>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 300 }}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Time-Based Performance
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {Object.entries(stats.timeBuckets).map(([key, bucket]) => (
+                <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {bucket.label}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Sessions: {bucket.sessions}
+                    </Typography>
+                    <Typography 
+                      variant="h6" 
+                      color={bucket.hours > 0 ? (bucket.net / bucket.hours >= 0 ? 'success.main' : 'error.main') : 'text.secondary'}
+                      sx={{ fontSize: '1rem' }}
+                    >
+                      {bucket.hours > 0 ? `$${(bucket.net / bucket.hours).toFixed(2)}/hr` : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
             </Box>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">Avg Session Time</Typography>
-              <Typography variant="h6">{stats.avgSessionTime.toFixed(2)}h</Typography>
+          </Paper>
+
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Stakes-Based Performance
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {Object.entries(stats.stakesBuckets).length > 0 ? (
+                Object.entries(stats.stakesBuckets).map(([key, bucket]) => (
+                  <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {bucket.label}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Sessions: {bucket.sessions}
+                      </Typography>
+                      <Typography 
+                        variant="h6" 
+                        color={bucket.hours > 0 ? (bucket.net / bucket.hours >= 0 ? 'success.main' : 'error.main') : 'text.secondary'}
+                        sx={{ fontSize: '1rem' }}
+                      >
+                        {bucket.hours > 0 ? `$${(bucket.net / bucket.hours).toFixed(2)}/hr` : 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  No stakes data available
+                </Typography>
+              )}
             </Box>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">Hands/Hour</Typography>
-              <Typography variant="h6">{stats.handsPerHour.toFixed(1)}</Typography>
-            </Box>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">$/Hour</Typography>
-              <Typography 
-                variant="h6" 
-                color={stats.dollarPerHour >= 0 ? 'success.main' : 'error.main'}
-              >
-                ${stats.dollarPerHour.toFixed(2)}
-              </Typography>
-            </Box>
-            <Box sx={{ minWidth: 120 }}>
-              <Typography variant="body2" color="text.secondary">$/Hand</Typography>
-              <Typography 
-                variant="h6" 
-                color={stats.dollarPerHand >= 0 ? 'success.main' : 'error.main'}
-              >
-                ${stats.dollarPerHand.toFixed(2)}
-              </Typography>
-            </Box>
-          </Box>
+          </Paper>
         </Box>
-      </Paper>
+      </Box>
 
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
