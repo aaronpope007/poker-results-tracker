@@ -79,41 +79,6 @@ export default function ReportsTab() {
       return sum;
     }, 0);
 
-    // Calculate time bucket statistics
-    const timeBuckets = {
-      night: { sessions: 0, net: 0, hours: 0, label: '12 AM - 6 AM' }, // 0-6
-      morning: { sessions: 0, net: 0, hours: 0, label: '6 AM - 12 PM' }, // 6-12
-      afternoon: { sessions: 0, net: 0, hours: 0, label: '12 PM - 6 PM' }, // 12-18
-      evening: { sessions: 0, net: 0, hours: 0, label: '6 PM - 12 AM' }, // 18-24
-    };
-
-    completedSessions.forEach(session => {
-      if (session.startTime) {
-        const hour = session.startTime.getHours();
-        const net = session.accountEnd! - session.accountStart!;
-        const hours = session.endTime && session.startTime 
-          ? (session.endTime.getTime() - session.startTime.getTime()) / (1000 * 60 * 60)
-          : 0;
-
-        if (hour >= 0 && hour < 6) {
-          timeBuckets.night.sessions++;
-          timeBuckets.night.net += net;
-          timeBuckets.night.hours += hours;
-        } else if (hour >= 6 && hour < 12) {
-          timeBuckets.morning.sessions++;
-          timeBuckets.morning.net += net;
-          timeBuckets.morning.hours += hours;
-        } else if (hour >= 12 && hour < 18) {
-          timeBuckets.afternoon.sessions++;
-          timeBuckets.afternoon.net += net;
-          timeBuckets.afternoon.hours += hours;
-        } else if (hour >= 18 && hour < 24) {
-          timeBuckets.evening.sessions++;
-          timeBuckets.evening.net += net;
-          timeBuckets.evening.hours += hours;
-        }
-      }
-    });
 
     // Calculate stakes-based statistics
     const stakesBuckets: { [key: string]: { sessions: number, net: number, hours: number, hands: number, label: string } } = {};
@@ -147,7 +112,6 @@ export default function ReportsTab() {
       handsPerSession: totalSessions > 0 ? totalHands / totalSessions : 0,
       dollarPerHour: totalHours > 0 ? totalNet / totalHours : 0,
       dollarPerHand: totalHands > 0 ? totalNet / totalHands : 0,
-      timeBuckets,
       stakesBuckets,
     };
   };
@@ -347,13 +311,13 @@ export default function ReportsTab() {
           </Box>
         </Paper>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 300 }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Time-Based Performance
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {Object.entries(stats.timeBuckets).map(([key, bucket]) => (
+        <Paper sx={{ p: 3, minWidth: 300 }}>
+          <Typography variant="h6" gutterBottom>
+            Stakes-Based Performance
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {Object.entries(stats.stakesBuckets).length > 0 ? (
+              Object.entries(stats.stakesBuckets).map(([key, bucket]) => (
                 <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     {bucket.label}
@@ -371,43 +335,14 @@ export default function ReportsTab() {
                     </Typography>
                   </Box>
                 </Box>
-              ))}
-            </Box>
-          </Paper>
-
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Stakes-Based Performance
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {Object.entries(stats.stakesBuckets).length > 0 ? (
-                Object.entries(stats.stakesBuckets).map(([key, bucket]) => (
-                  <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {bucket.label}
-                    </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Sessions: {bucket.sessions}
-                      </Typography>
-                      <Typography 
-                        variant="h6" 
-                        color={bucket.hours > 0 ? (bucket.net / bucket.hours >= 0 ? 'success.main' : 'error.main') : 'text.secondary'}
-                        sx={{ fontSize: '1rem' }}
-                      >
-                        {bucket.hours > 0 ? `$${(bucket.net / bucket.hours).toFixed(2)}/hr` : 'N/A'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  No stakes data available
-                </Typography>
-              )}
-            </Box>
-          </Paper>
-        </Box>
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                No stakes data available
+              </Typography>
+            )}
+          </Box>
+        </Paper>
       </Box>
 
       <Paper sx={{ p: 3 }}>

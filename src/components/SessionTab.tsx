@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -12,7 +12,6 @@ import {
   FormControlLabel,
   Button,
   Chip,
-  Alert,
 } from '@mui/material';
 import { differenceInMinutes } from 'date-fns';
 import { useApp } from '../context/AppContext';
@@ -27,8 +26,8 @@ export default function SessionTab() {
   }
   const [session, setSession] = useState<Partial<Session>>({
     date: new Date(),
-    startTime: undefined,
-    endTime: undefined,
+    startTime: new Date(),
+    endTime: new Date(),
     handsStart: 0,
     limit: '',
     format: 'HU with ante',
@@ -37,23 +36,8 @@ export default function SessionTab() {
     isActive: false,
   });
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Timer effect for live updates - only when session is active
+  // Load default settings
   useEffect(() => {
-    if (!state.currentSession?.isActive) return;
-    
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [state.currentSession?.isActive]);
-
-  // Load default settings and previous session data
-  useEffect(() => {
-    // Load default settings from localStorage
     const defaultSettings = localStorage.getItem('poker-default-settings');
     if (defaultSettings) {
       try {
@@ -67,46 +51,36 @@ export default function SessionTab() {
         console.error('Error loading default settings:', error);
       }
     }
+  }, []);
 
-    // Load previous session data
-    if (state.sessions.length > 0) {
-      const lastSession = state.sessions[state.sessions.length - 1];
-      if (lastSession.handsEnd) {
-        setSession(prev => ({
-          ...prev,
-          handsStart: lastSession.handsEnd,
-          accountStart: lastSession.accountEnd || 0,
-        }));
-      }
+  const handleSubmitSession = () => {
+    if (!session.handsStart || !session.handsEnd || !session.accountStart || !session.accountEnd) {
+      alert('Please fill in all required fields (Hands Start, Hands End, Account Start, Account End)');
+      return;
     }
-  }, [state.sessions]);
 
-  const handleStartSession = () => {
-    const now = new Date();
     const newSession: Session = {
       id: Date.now().toString(),
-      date: now,
-      startTime: now,
-      handsStart: session.handsStart || 0,
+      date: session.startTime || new Date(),
+      startTime: session.startTime || new Date(),
+      endTime: session.endTime || new Date(),
+      handsStart: session.handsStart,
+      handsEnd: session.handsEnd,
       limit: session.limit || '',
       format: session.format || 'HU with ante',
       straddle: session.straddle || false,
-      accountStart: session.accountStart || 0,
-      isActive: true,
+      accountStart: session.accountStart,
+      accountEnd: session.accountEnd,
+      isActive: false,
     };
     
     dispatch({ type: 'ADD_SESSION', payload: newSession });
-    dispatch({ type: 'SET_CURRENT_SESSION', payload: newSession });
-    setIsEditing(true);
     
-    // Initialize timer for the new session
-    setCurrentTime(now);
-    
-    // Reset form for next session but keep current limit and format
+    // Clear the session form but keep limit and format
     setSession(prev => ({
       date: new Date(),
-      startTime: undefined,
-      endTime: undefined,
+      startTime: new Date(),
+      endTime: new Date(),
       handsStart: 0,
       limit: prev.limit,
       format: prev.format,
@@ -114,6 +88,8 @@ export default function SessionTab() {
       accountStart: 0,
       isActive: false,
     }));
+    
+    alert('Session submitted successfully!');
   };
 
   const handleSaveDefaults = () => {
@@ -125,31 +101,6 @@ export default function SessionTab() {
     alert('Default settings saved!');
   };
 
-  const handleClearSession = () => {
-    try {
-      dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
-      setIsEditing(false);
-      setCurrentTime(new Date());
-      
-      // Reset session form to default state
-      setSession(prev => ({
-        date: new Date(),
-        startTime: undefined,
-        endTime: undefined,
-        handsStart: 0,
-        limit: prev.limit || '',
-        format: prev.format || 'HU with ante',
-        straddle: false,
-        accountStart: 0,
-        isActive: false,
-      }));
-    } catch (error) {
-      console.error('Error clearing session:', error);
-      // Fallback: reload the page
-      window.location.reload();
-    }
-  };
-
   const handleClearAllData = () => {
     if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
       localStorage.removeItem('poker-tracker-data');
@@ -158,40 +109,8 @@ export default function SessionTab() {
     }
   };
 
-  const handleEndSession = () => {
-    if (!state.currentSession) return;
-    
-    const now = new Date();
-    const updatedSession: Session = {
-      ...state.currentSession,
-      endTime: now,
-      handsEnd: session.handsEnd,
-      accountEnd: session.accountEnd,
-      isActive: false,
-    };
-    
-    dispatch({ type: 'UPDATE_SESSION', payload: updatedSession });
-    dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
-    setIsEditing(false);
-    
-    // Stop the timer when session ends
-    setCurrentTime(now);
-  };
 
 
-
-  const getCurrentSessionDuration = useCallback(() => {
-    if (!state.currentSession?.startTime || !state.currentSession?.isActive) return '0h 0m';
-    try {
-      const minutes = differenceInMinutes(currentTime, state.currentSession.startTime);
-      const hours = Math.floor(minutes / 60);
-      const remainingMinutes = minutes % 60;
-      return `${hours}h ${remainingMinutes}m`;
-    } catch (error) {
-      console.error('Error calculating session duration:', error);
-      return '0h 0m';
-    }
-  }, [state.currentSession?.startTime, state.currentSession?.isActive, currentTime]);
 
   const getTotalHands = () => {
     if (!session.handsEnd || !session.handsStart) return 0;
@@ -204,9 +123,8 @@ export default function SessionTab() {
   };
 
   const getHandsPerHour = () => {
-    if (!session.startTime || !session.handsEnd) return 0;
-    const endTime = session.endTime || new Date();
-    const hours = differenceInMinutes(endTime, session.startTime) / 60;
+    if (!session.startTime || !session.endTime || !session.handsEnd) return 0;
+    const hours = differenceInMinutes(session.endTime, session.startTime) / 60;
     return hours > 0 ? Math.round(getTotalHands() / hours) : 0;
   };
 
@@ -219,7 +137,7 @@ export default function SessionTab() {
     }, 0);
   };
 
-  const canEndSession = () => {
+  const canSubmitSession = () => {
     return !!(session.handsStart && session.handsEnd && session.accountStart && session.accountEnd);
   };
 
@@ -237,20 +155,46 @@ export default function SessionTab() {
         />
       </Box>
 
-      {/* Current Session Status */}
-      {state.currentSession && state.currentSession.isActive && state.currentSession.startTime && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="h6">
-            Session Active - Started: {state.currentSession.startTime.toLocaleString()}
-          </Typography>
-          <Typography variant="body1">
-            Duration: {getCurrentSessionDuration()}
-          </Typography>
-        </Alert>
-      )}
 
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <TextField
+                label="Date"
+                type="date"
+                value={session.date?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0]}
+                onChange={(e) => setSession(prev => ({ ...prev, date: new Date(e.target.value) }))}
+                sx={{ minWidth: 150 }}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="Start Time"
+                type="time"
+                value={session.startTime?.toTimeString().slice(0, 5) || new Date().toTimeString().slice(0, 5)}
+                onChange={(e) => {
+                  const [hours, minutes] = e.target.value.split(':');
+                  const newTime = new Date(session.startTime || new Date());
+                  newTime.setHours(parseInt(hours), parseInt(minutes));
+                  setSession(prev => ({ ...prev, startTime: newTime }));
+                }}
+                sx={{ minWidth: 150 }}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="End Time"
+                type="time"
+                value={session.endTime?.toTimeString().slice(0, 5) || new Date().toTimeString().slice(0, 5)}
+                onChange={(e) => {
+                  const [hours, minutes] = e.target.value.split(':');
+                  const newTime = new Date(session.endTime || new Date());
+                  newTime.setHours(parseInt(hours), parseInt(minutes));
+                  setSession(prev => ({ ...prev, endTime: newTime }));
+                }}
+                sx={{ minWidth: 150 }}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Box>
 
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField
@@ -337,16 +281,14 @@ export default function SessionTab() {
               />
             </Box>
 
-            {state.currentSession && (
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <TextField
-                  label="Hands Per Hour"
-                  value={getHandsPerHour()}
-                  sx={{ minWidth: 150 }}
-                  disabled
-                />
-              </Box>
-            )}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <TextField
+                label="Hands Per Hour"
+                value={getHandsPerHour()}
+                sx={{ minWidth: 150 }}
+                disabled
+              />
+            </Box>
 
             {session.accountEnd && (
               <Typography
@@ -358,53 +300,30 @@ export default function SessionTab() {
             )}
 
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-              {!isEditing ? (
-                <>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={handleStartSession}
-                  >
-                    Start Session
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="medium"
-                    onClick={handleSaveDefaults}
-                    disabled={!session.limit || !session.format}
-                  >
-                    Save as Default
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    size="small"
-                    onClick={handleClearAllData}
-                  >
-                    Clear All Data
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="contained"
-                    color="error"
-                    size="large"
-                    onClick={handleEndSession}
-                    disabled={!canEndSession()}
-                  >
-                    End Session
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    size="medium"
-                    onClick={handleClearSession}
-                  >
-                    Clear Session
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="contained"
+                size="large"
+                onClick={handleSubmitSession}
+                disabled={!canSubmitSession()}
+              >
+                Submit Session
+              </Button>
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={handleSaveDefaults}
+                disabled={!session.limit || !session.format}
+              >
+                Save as Default
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                onClick={handleClearAllData}
+              >
+                Clear All Data
+              </Button>
             </Box>
           </Box>
         </Paper>
