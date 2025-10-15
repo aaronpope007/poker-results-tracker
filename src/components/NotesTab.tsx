@@ -21,6 +21,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useApp } from '../context/AppContext';
@@ -34,6 +36,8 @@ const colorTagOptions: { value: ColorTag; label: string; color: string }[] = [
   { value: 'magenta', label: 'Aggro Fish', color: '#e91e63' },
 ];
 
+const stakesOptions = [100, 200, 400, 1000];
+
 export default function NotesTab() {
   const { state, dispatch } = useApp();
   const [open, setOpen] = useState(false);
@@ -46,6 +50,7 @@ export default function NotesTab() {
     pfr: 0,
     note: '',
     exploits: '',
+    stakes: [] as number[],
   });
 
   const handleOpen = (player?: Player) => {
@@ -59,6 +64,7 @@ export default function NotesTab() {
         pfr: player.pfr,
         note: player.note,
         exploits: player.exploits,
+        stakes: player.stakes || [],
       });
     } else {
       setEditingPlayer(null);
@@ -70,6 +76,7 @@ export default function NotesTab() {
         pfr: 0,
         note: '',
         exploits: '',
+        stakes: [],
       });
     }
     setOpen(true);
@@ -81,6 +88,11 @@ export default function NotesTab() {
   };
 
   const handleSave = () => {
+    if (!formData.name.trim()) {
+      alert('Player name is required');
+      return;
+    }
+
     const playerData: Player = {
       id: editingPlayer?.id || Date.now().toString(),
       name: formData.name,
@@ -90,6 +102,7 @@ export default function NotesTab() {
       pfr: formData.pfr,
       note: formData.note,
       exploits: formData.exploits,
+      stakes: formData.stakes,
     };
 
     if (editingPlayer) {
@@ -104,6 +117,15 @@ export default function NotesTab() {
   const handleDelete = (playerId: string) => {
     // Note: You'd need to add a DELETE_PLAYER action to the reducer
     console.log('Delete player:', playerId);
+  };
+
+  const handleStakeChange = (stake: number, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      stakes: checked 
+        ? [...prev.stakes, stake]
+        : prev.stakes.filter(s => s !== stake)
+    }));
   };
 
   const getColorTagInfo = (colorTag: ColorTag) => {
@@ -132,6 +154,7 @@ export default function NotesTab() {
               <TableRow>
                 <TableCell>Name</TableCell>
                 <TableCell>Tag</TableCell>
+                <TableCell>Stakes</TableCell>
                 <TableCell>Hands</TableCell>
                 <TableCell>VPIP</TableCell>
                 <TableCell>PFR</TableCell>
@@ -151,6 +174,19 @@ export default function NotesTab() {
                         sx={{ backgroundColor: tagInfo.color, color: 'white' }}
                         size="small"
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {(player.stakes || []).map((stake) => (
+                          <Chip
+                            key={stake}
+                            label={`${stake}`}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem' }}
+                          />
+                        ))}
+                      </Box>
                     </TableCell>
                     <TableCell>{player.totalHands}</TableCell>
                     <TableCell>{player.vpip}%</TableCell>
@@ -196,6 +232,7 @@ export default function NotesTab() {
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 sx={{ minWidth: 200, flex: 1 }}
+                required
               />
               <FormControl sx={{ minWidth: 200, flex: 1 }}>
                 <InputLabel>Color Tag</InputLabel>
@@ -220,6 +257,29 @@ export default function NotesTab() {
                   ))}
                 </Select>
               </FormControl>
+            </Box>
+            
+            {/* Stakes checkboxes - indented under Tag */}
+            <Box sx={{ pl: 2, borderLeft: '3px solid #e0e0e0', ml: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Stakes Seen At:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {stakesOptions.map((stake) => (
+                  <FormControlLabel
+                    key={stake}
+                    control={
+                      <Checkbox
+                        checked={formData.stakes.includes(stake)}
+                        onChange={(e) => handleStakeChange(stake, e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={stake}
+                    sx={{ mb: 0 }}
+                  />
+                ))}
+              </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField

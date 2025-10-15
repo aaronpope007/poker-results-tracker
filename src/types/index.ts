@@ -22,6 +22,7 @@ export interface Player {
   pfr: number;
   note: string;
   exploits: string;
+  stakes: number[];
   aiSummary?: string;
 }
 
