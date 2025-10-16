@@ -23,8 +23,9 @@ import {
   DialogActions,
   FormControlLabel,
   Checkbox,
+  Collapse,
 } from '@mui/material';
-import { Edit, Delete, Add } from '@mui/icons-material';
+import { Edit, Delete, Add, ExpandMore, ExpandLess } from '@mui/icons-material';
 import { useApp } from '../context/AppContext';
 import type { Player, ColorTag } from '../types';
 
@@ -42,6 +43,7 @@ export default function NotesTab() {
   const { state, dispatch } = useApp();
   const [open, setOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     name: '',
     colorTag: 'green' as ColorTag,
@@ -128,6 +130,18 @@ export default function NotesTab() {
     }));
   };
 
+  const handleRowToggle = (playerId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  };
+
   const getColorTagInfo = (colorTag: ColorTag) => {
     return colorTagOptions.find(option => option.value === colorTag) || colorTagOptions[0];
   };
@@ -165,54 +179,97 @@ export default function NotesTab() {
             <TableBody>
               {state.players.map((player) => {
                 const tagInfo = getColorTagInfo(player.colorTag);
+                const isExpanded = expandedRows.has(player.id);
+                const hasLongNote = player.note && player.note.length > 50;
+                
                 return (
-                  <TableRow key={player.id}>
-                    <TableCell>{player.name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={tagInfo.label}
-                        sx={{ backgroundColor: tagInfo.color, color: 'white' }}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {(player.stakes || []).map((stake) => (
-                          <Chip
-                            key={stake}
-                            label={`${stake}`}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontSize: '0.7rem' }}
-                          />
-                        ))}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{player.totalHands}</TableCell>
-                    <TableCell>{player.vpip}%</TableCell>
-                    <TableCell>{player.pfr}%</TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          maxWidth: 200,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {player.note}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton onClick={() => handleOpen(player)} size="small">
-                        <Edit />
-                      </IconButton>
-                      <IconButton onClick={() => handleDelete(player.id)} size="small">
-                        <Delete />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    <TableRow 
+                      key={player.id}
+                      sx={{ 
+                        cursor: hasLongNote ? 'pointer' : 'default',
+                        '&:hover': hasLongNote ? { backgroundColor: 'rgba(0, 0, 0, 0.04)' } : {}
+                      }}
+                      onClick={hasLongNote ? () => handleRowToggle(player.id) : undefined}
+                    >
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {hasLongNote && (
+                            <IconButton size="small" sx={{ p: 0 }}>
+                              {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                            </IconButton>
+                          )}
+                          {player.name}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={tagInfo.label}
+                          sx={{ backgroundColor: tagInfo.color, color: 'white' }}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {(player.stakes || []).map((stake) => (
+                            <Chip
+                              key={stake}
+                              label={`${stake}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{ fontSize: '0.7rem' }}
+                            />
+                          ))}
+                        </Box>
+                      </TableCell>
+                      <TableCell>{player.totalHands}</TableCell>
+                      <TableCell>{player.vpip}%</TableCell>
+                      <TableCell>{player.pfr}%</TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            maxWidth: 200,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {player.note}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <IconButton onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpen(player);
+                        }} size="small">
+                          <Edit />
+                        </IconButton>
+                        <IconButton onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(player.id);
+                        }} size="small">
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                    {hasLongNote && (
+                      <TableRow>
+                        <TableCell colSpan={8} sx={{ py: 0, borderBottom: 'none' }}>
+                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                            <Box sx={{ p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                Full Note:
+                              </Typography>
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                                {player.note}
+                              </Typography>
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 );
               })}
             </TableBody>
